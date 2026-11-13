@@ -98,13 +98,35 @@ export async function loginWithOwnerWallet(params: {
     });
   } catch (err) {
     const e = err as { name?: string; message?: string; code?: unknown; status?: unknown; cause?: unknown };
+    const codeStr = String(e.code ?? "").toUpperCase();
+    const msgStr = String(e.message ?? "");
+    const causeStr = String((e.cause as { message?: string } | undefined)?.message ?? e.cause ?? "");
+
+    const isAlreadyLinked =
+      codeStr.includes("AUTH_WALLET_ALREADY_LINKED") ||
+      codeStr.includes("WALLET_ALREADY_LINKED") ||
+      msgStr.includes("AUTH_WALLET_ALREADY_LINKED") ||
+      msgStr.includes("WALLET_ALREADY_LINKED") ||
+      causeStr.includes("AUTH_WALLET_ALREADY_LINKED") ||
+      causeStr.includes("WALLET_ALREADY_LINKED");
+
+    if (isAlreadyLinked) {
+      logger.fileOnly(
+        "ERROR",
+        `Wallet login rejected (wallet already linked): ${e.name}: ${e.message}`
+      );
+      throw new Error(
+        "Wallet is already linked to another account (AUTH_WALLET_ALREADY_LINKED). Please log in with the account address the wallet is already linked to."
+      );
+    }
+
     const isForbidden =
-      String(e.code).toUpperCase() === "PERMISSION_DENIED" ||
+      codeStr === "PERMISSION_DENIED" ||
       String(e.status) === "403" ||
-      /HTTP 403/.test(e.message ?? "");
+      /HTTP 403/.test(msgStr);
     logger.fileOnly(
       isForbidden ? "WARN" : "ERROR",
-      `Wallet login rejected: ${e.name}: ${e.message} (code=${String(e.code)}, status=${String(e.status)}, cause=${String((e.cause as { message?: string } | undefined)?.message ?? e.cause ?? "")})`
+      `Wallet login rejected: ${e.name}: ${e.message} (code=${String(e.code)}, status=${String(e.status)}, cause=${causeStr})`
     );
     if (isForbidden) {
       throw new WalletLoginBlockedError(

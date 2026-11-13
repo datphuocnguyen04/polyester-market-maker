@@ -13,6 +13,7 @@ export interface WalletCredentials {
 }
 
 export interface BotConfig extends WalletCredentials {
+  apiKeyRecvWindowMs?: number;
   swapAmountUsdt: string;
   maxSlippageBps: number;
   trendingCount: number;
@@ -123,10 +124,25 @@ export function loadConfig(overrides?: {
   const claimOpenBrowser = (process.env.CLAIM_OPEN_BROWSER ?? "true").toLowerCase() !== "false";
   const claimReprobeHours = Number(process.env.CLAIM_REPROBE_HOURS ?? "6");
 
+  let apiKeyRecvWindowMs: number | undefined;
+  if (
+    process.env.POLYESTER_API_RECV_WINDOW_MS !== undefined &&
+    process.env.POLYESTER_API_RECV_WINDOW_MS.trim() !== ""
+  ) {
+    const rawRecv = Number(process.env.POLYESTER_API_RECV_WINDOW_MS.trim());
+    if (!Number.isInteger(rawRecv) || rawRecv < 1 || rawRecv > 60000) {
+      throw new Error(
+        `Invalid POLYESTER_API_RECV_WINDOW_MS "${process.env.POLYESTER_API_RECV_WINDOW_MS}" (must be an integer between 1 and 60000)`
+      );
+    }
+    apiKeyRecvWindowMs = rawRecv;
+  }
+
   return {
     name: "Main",
     apiKeyId,
     apiPrivateKey: rawApiPriv,
+    apiKeyRecvWindowMs,
     ownerPrivateKey,
     smartAccountAddress,
     swapAmountUsdt,
@@ -190,11 +206,20 @@ export function loadMultiWalletConfigs(overrides?: {
         smartAccountAddress = rawSmart as Hex;
       }
 
+      let walletRecvWindowMs: number | undefined = baseConfig.apiKeyRecvWindowMs;
+      if (w.apiKeyRecvWindowMs !== undefined && String(w.apiKeyRecvWindowMs).trim() !== "") {
+        const parsedRecv = Number(w.apiKeyRecvWindowMs);
+        if (Number.isInteger(parsedRecv) && parsedRecv >= 1 && parsedRecv <= 60000) {
+          walletRecvWindowMs = parsedRecv;
+        }
+      }
+
       configs.push({
         ...baseConfig,
         name: String(w.name || `Wallet-${i + 1}`).trim(),
         apiKeyId: apiKeyId || baseConfig.apiKeyId,
         apiPrivateKey: rawApiPriv || baseConfig.apiPrivateKey,
+        apiKeyRecvWindowMs: walletRecvWindowMs,
         ownerPrivateKey,
         smartAccountAddress,
         subaccountId: w.subaccountId ? String(w.subaccountId).trim() : undefined,

@@ -133,6 +133,7 @@ export async function quoteSwap(params: {
   amountE18: bigint;
   maxSlippageBps: number;
   subaccountId?: string;
+  recvWindowMs?: number;
 }): Promise<NonNullable<QuoteSwapResponseWire["quote"]>> {
   const terms: SwapTermsWire = {
     sourceAssetId: params.sourceAssetId,
@@ -150,6 +151,7 @@ export async function quoteSwap(params: {
     },
     apiKeyId: params.apiKeyId,
     apiPrivateKey: params.apiPrivateKey,
+    recvWindowMs: params.recvWindowMs,
   });
 
   if (!res.quote || !res.quote.minAmountOutE18 || !res.quote.expiresAt) {
@@ -166,6 +168,7 @@ export async function pollSwapUntilTerminal(params: {
   initialSwap?: SwapWire;
   pollIntervalMs?: number;
   maxPollAttempts?: number;
+  recvWindowMs?: number;
 }): Promise<SingleLegSwapResult> {
   const pollIntervalMs = params.pollIntervalMs ?? 1500;
   const maxPollAttempts = params.maxPollAttempts ?? 25;
@@ -185,6 +188,7 @@ export async function pollSwapUntilTerminal(params: {
       body: { idempotencyKey: params.idempotencyKey },
       apiKeyId: params.apiKeyId,
       apiPrivateKey: params.apiPrivateKey,
+      recvWindowMs: params.recvWindowMs,
     });
     if (res.swap) {
       current = res.swap;
@@ -227,6 +231,7 @@ export async function executeSwapLeg(params: {
   maxSlippageBps: number;
   subaccountId?: string;
   idempotencyKeyBase: string;
+  recvWindowMs?: number;
 }): Promise<SingleLegSwapResult> {
   const maxQuoteAttempts = 2;
 
@@ -245,6 +250,7 @@ export async function executeSwapLeg(params: {
       amountE18: params.amountE18,
       maxSlippageBps: params.maxSlippageBps,
       subaccountId: params.subaccountId,
+      recvWindowMs: params.recvWindowMs,
     });
 
     const expectedOut = fromU128(quote.expectedAmountOutE18);
@@ -285,6 +291,7 @@ export async function executeSwapLeg(params: {
         },
         apiKeyId: params.apiKeyId,
         apiPrivateKey: params.apiPrivateKey,
+        recvWindowMs: params.recvWindowMs,
       });
 
       const finalResult = await pollSwapUntilTerminal({
@@ -293,6 +300,7 @@ export async function executeSwapLeg(params: {
         apiPrivateKey: params.apiPrivateKey,
         idempotencyKey,
         initialSwap: created.swap,
+        recvWindowMs: params.recvWindowMs,
       });
 
       logger.info(
@@ -637,6 +645,7 @@ export async function executeRoundTripSwapForPair(params: {
   cycleId: string;
   dryRun?: boolean;
   interLegDelayMs?: number;
+  recvWindowMs?: number;
 }): Promise<RoundTripSwapOutcome> {
   const { pair, dryRun = false } = params;
   const amountInE18 = toE18(params.swapAmountQuote);
@@ -653,6 +662,7 @@ export async function executeRoundTripSwapForPair(params: {
         amountE18: amountInE18,
         maxSlippageBps: params.maxSlippageBps,
         subaccountId: params.subaccountId,
+        recvWindowMs: params.recvWindowMs,
       });
 
       const expectedBase = fromE18(fromU128(quote.expectedAmountOutE18));
@@ -693,6 +703,7 @@ export async function executeRoundTripSwapForPair(params: {
       maxSlippageBps: params.maxSlippageBps,
       subaccountId: params.subaccountId,
       idempotencyKeyBase: leg1Key,
+      recvWindowMs: params.recvWindowMs,
     });
 
     // Note: Per docs, even a FAILED swap with MINIMUM_NOT_MET or PARTIALLY_COMPLETED
@@ -723,6 +734,7 @@ export async function executeRoundTripSwapForPair(params: {
       maxSlippageBps: params.maxSlippageBps,
       subaccountId: params.subaccountId,
       idempotencyKeyBase: leg2Key,
+      recvWindowMs: params.recvWindowMs,
     });
 
     return {

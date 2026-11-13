@@ -141,7 +141,9 @@ export function isRetryableConnectError(err: unknown): boolean {
     err.domainCode === "QUOTE_UNAVAILABLE" ||
     err.domainCode === "RATE_LIMIT_EXCEEDED" ||
     err.domainCode === "SYSTEM_RATE_LIMITED" ||
-    err.domainCode === "OVERLOADED"
+    err.domainCode === "OVERLOADED" ||
+    err.domainCode === "REQUEST_DEADLINE_EXCEEDED" ||
+    err.domainCode === "TIMESTAMP_SKEW"
   ) {
     return true;
   }
@@ -158,6 +160,7 @@ export async function callConnectJsonWithApiKey<TReq extends object, TRes>(param
   body: TReq;
   apiKeyId: string;
   apiPrivateKey: string;
+  recvWindowMs?: number;
   maxRetries?: number;
   timeoutMs?: number;
 }): Promise<TRes> {
@@ -188,6 +191,7 @@ export async function callConnectJsonWithApiKey<TReq extends object, TRes>(param
       path,
       rawQuery: "",
       body: bodyStr,
+      recvWindowMs: params.recvWindowMs,
     });
 
     const controller = new AbortController();

@@ -5,8 +5,16 @@ import { ed25519 } from "@noble/curves/ed25519";
  * Ed25519 API key request signing implementation per Polyester specification:
  * https://testnet.polyester.com/docs/developer-docs/authentication-security/ed25519-api-keys
  *
- * Canonical string (5 lines separated by "\n", no trailing newline):
+ * Canonical string when recvWindowMs is omitted (5 lines separated by "\n", no trailing newline):
  *   <timestamp_ms>
+ *   <uppercase_method>
+ *   <path>
+ *   <canonical_query>
+ *   <body_sha256_hex>
+ *
+ * Canonical string when recvWindowMs is provided (6 lines separated by "\n", no trailing newline):
+ *   <timestamp_ms>
+ *   <recv_window_ms>
  *   <uppercase_method>
  *   <path>
  *   <canonical_query>
@@ -17,6 +25,23 @@ export interface SignedHeaders {
   "X-API-KEY-ID": string;
   "X-API-TIMESTAMP": string;
   "X-API-SIGNATURE": string;
+  "X-API-RECV-WINDOW"?: string;
+}
+
+/**
+ * Validates that recvWindowMs is an integer between 1 and 60000.
+ */
+export function validateRecvWindowMs(recvWindowMs: unknown): asserts recvWindowMs is number {
+  if (
+    typeof recvWindowMs !== "number" ||
+    !Number.isInteger(recvWindowMs) ||
+    recvWindowMs < 1 ||
+    recvWindowMs > 60000
+  ) {
+    throw new Error(
+      `Invalid recvWindowMs: expected integer between 1 and 60000, got ${String(recvWindowMs)}`
+    );
+  }
 }
 
 /**
@@ -80,7 +105,7 @@ export function sha256Hex(body: string | Uint8Array = ""): string {
 }
 
 /**
- * Builds the 5-line canonical string to sign.
+ * Builds the canonical string to sign (5 lines if recvWindowMs is omitted, 6 lines if provided).
  */
 export function buildCanonicalString(params: {
   timestampMs: string;
@@ -88,11 +113,19 @@ export function buildCanonicalString(params: {
   path: string;
   rawQuery?: string;
   body?: string | Uint8Array;
+  recvWindowMs?: number;
 }): string {
-  const { timestampMs, method, path, rawQuery = "", body = "" } = params;
+  const { timestampMs, method, path, rawQuery = "", body = "", recvWindowMs } = params;
+  if (recvWindowMs !== undefined) {
+    validateRecvWindowMs(recvWindowMs);
+  }
   const upperMethod = method.toUpperCase();
   const canonicalQuery = normalizeQuery(rawQuery);
   const bodyHash = sha256Hex(body);
+
+  if (recvWindowMs !== undefined) {
+    return [timestampMs, String(recvWindowMs), upperMethod, path, canonicalQuery, bodyHash].join("\n");
+  }
 
   return [timestampMs, upperMethod, path, canonicalQuery, bodyHash].join("\n");
 }
@@ -132,14 +165,19 @@ export function signApiKeyRequest(params: {
   rawQuery?: string;
   body?: string | Uint8Array;
   timestampMs?: string;
+  recvWindowMs?: number;
 }): SignedHeaders {
   const timestampMs = params.timestampMs ?? nextTimestampMs();
+  if (params.recvWindowMs !== undefined) {
+    validateRecvWindowMs(params.recvWindowMs);
+  }
   const canonical = buildCanonicalString({
     timestampMs,
     method: params.method,
     path: params.path,
     rawQuery: params.rawQuery,
     body: params.body,
+    recvWindowMs: params.recvWindowMs,
   });
 
   const privKeyBytes = parseEd25519PrivateKey(params.privateKeyHex);
@@ -147,9 +185,15 @@ export function signApiKeyRequest(params: {
   const signatureBytes = ed25519.sign(msgBytes, privKeyBytes);
   const signatureHex = Buffer.from(signatureBytes).toString("hex");
 
-  return {
+  const headers: SignedHeaders = {
     "X-API-KEY-ID": params.apiKeyId,
     "X-API-TIMESTAMP": timestampMs,
     "X-API-SIGNATURE": signatureHex,
   };
+
+  if (params.recvWindowMs !== undefined) {
+    headers["X-API-RECV-WINDOW"] = String(params.recvWindowMs);
+  }
+
+  return headers;
 }

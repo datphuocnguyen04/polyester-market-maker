@@ -370,6 +370,7 @@ export async function runSwapOnlyCycle(config: BotConfig): Promise<void> {
       subaccountId: config.subaccountId,
       cycleId: `${cycleId}-${i + 1}`,
       dryRun: config.dryRun,
+      recvWindowMs: config.apiKeyRecvWindowMs,
     });
 
     const record: SwapRecordSummary = {
