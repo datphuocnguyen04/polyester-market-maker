@@ -105,10 +105,4 @@ All key market-making parameters can be tuned in `.env`:
 | `MM_BOOTSTRAP_INVENTORY` | `true` | Automatically balance base inventory for quoting |
 | `MM_TURBO_TURNOVER` | `false` | Enable aggressive market-order volume boosting |
 
----
-
-## Contributing
-
-See **[CONTRIBUTING.md](CONTRIBUTING.md)** for developer workflow, branch conventions, and testing requirements.
-
 
