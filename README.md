@@ -1,6 +1,6 @@
 # Polyester DEX Market Maker & Trading Bot
 
-A high-performance Two-Sided Limit Market Maker and Trading Bot for **Polyester DEX Testnet** built with TypeScript, Node.js, and `@polyester/sdk`.
+A high-performance Two-Sided Limit Market Maker and Trading Bot for **Polyester DEX Testnet** built with Node.js.
 
 Features a real-time Terminal UI (TUI), automated inventory balancing, post-only quoting, and native multi-wallet support.
 
